@@ -1,0 +1,12 @@
+[package]
+name = "uloop"
+version = "0.1.0"
+authors = ["JGL666"]
+edition = "2018"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitflags = "1.2.1"
+
+[dependencies.nix]
+version = "0.18"
