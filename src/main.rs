@@ -18,6 +18,8 @@ use crate::timer::{ULoopTimer,ULoopExpiration};
 use crate::signal::{ULoopSignal};
 use std::cell::RefCell;
 use nix::sys::signal::{raise, SIGUSR1};
+use nix::unistd::{Pid};
+
 #[macro_use]
 extern crate bitflags;
 
@@ -65,7 +67,12 @@ fn main() {
                                        dbg!();
                                    })));
 
-    v2.fd.fd = Some(Rc::new(RefCell::new(ULoopSignal::new())));
+    let mut s1 = Rc::new(RefCell::new(ULoopSignal::new()));
+    s1.borrow_mut().insert(Pid::this(), Some(Box::new(||{
+        println!("hello {}",Pid::this());
+    })));
+    v2.fd.fd = Some(s1);
+
     poll.register(&v.fd, ULoopFlags::ULOOP_READ, Token::new(0));
     poll.register(&v1.fd, ULoopFlags::ULOOP_READ, Token::new(1));
     poll.register(&v2.fd, ULoopFlags::ULOOP_READ, Token::new(2));
