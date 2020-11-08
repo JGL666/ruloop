@@ -1,10 +1,10 @@
 use std::{io,os::unix::io::RawFd};
+use std::rc::Rc;
 use nix::sys::epoll::{self,EpollEvent,EpollOp,EpollFlags};
 use nix::fcntl::{fcntl,FcntlArg,FdFlag};
-use crate::uloop::ULoopFd;
-// use crate::ULoopFd;
-// use futures::StreamExt;
-use crate::list::Token;
+use crate::uloop::{ULoopFd};
+use crate::event::list::{Token,EventList,ULoopFdEvent,ULoopEventCallback};
+use std::cell::RefCell;
 
 #[derive(Debug)]
 pub struct PollEvent{
@@ -58,28 +58,26 @@ fn no_nix_err(err: nix::Error) -> std::io::Error {
 }
 pub struct Epoll {
     poll_fd: RawFd,
+    list:EventList
 }
 
 impl Epoll{
     pub fn new()->io::Result<Epoll>{
         let poll_fd = epoll::epoll_create().map_err(no_nix_err)?;
-        // std::result::Result<i32, nix::Error>
         let flag = fcntl(poll_fd, FcntlArg::F_GETFD).map_err(no_nix_err)?;
         let flag = FdFlag::from_bits(flag).unwrap();
         fcntl(poll_fd,
               FcntlArg::F_SETFD(flag | FdFlag::FD_CLOEXEC)).map_err(no_nix_err)?;
 
-        Ok(Epoll{poll_fd})
+        Ok(Epoll{
+            poll_fd,
+            list:EventList::new()
+        })
     }
 
-    pub fn register(&self, fd:&ULoopFd, flags:ULoopFlags, token:Token){
-        // let mut ev = EpollEvent::empty();
-        if fd.fd.is_none(){
-            return;
-        }
-
+    pub fn register(&mut self, fd:Rc<RefCell<ULoopFd>>, flags:ULoopFlags, callback:ULoopEventCallback){
         let mut events = EpollFlags::empty();
-        let op = if fd.registered{
+        let op = if fd.borrow().registered{
             EpollOp::EpollCtlMod
         }else{
             EpollOp::EpollCtlAdd
@@ -97,9 +95,18 @@ impl Epoll{
             events = EpollFlags::EPOLLET;
         }
 
-        let mut ev = EpollEvent::new(events, token.0 as u64);
+        let token = self.list.append(Box::new(ULoopFdEvent::new(
+            fd.clone(),
+            callback
+        )));
+
+        let mut ev = EpollEvent::new(events, token.into());
         dbg!(&ev);
-        let _ = epoll::epoll_ctl(self.poll_fd, op, fd.fd.as_ref().unwrap().borrow().get_raw_fd(), Some(&mut ev));
+        if let Some(f) = fd.borrow().fd.as_ref(){
+            dbg!();
+            let _ = epoll::epoll_ctl(self.poll_fd, op, f.borrow().get_raw_fd(), Some(&mut ev));
+
+        }
     }
 
     pub fn del(&self, _:&mut ULoopFd){
@@ -107,18 +114,24 @@ impl Epoll{
                          self.poll_fd, None);
     }
 
-    pub fn poll(&self, timeout: Option<std::time::Duration>)
-                ->io::Result<Vec<PollEvent>>{
+    pub fn poll(&mut self, timeout: Option<std::time::Duration>){
 
         let timeout = timeout.map(|t|t.as_millis() as isize).unwrap_or(-1);
         let mut events = [epoll::EpollEvent::empty(); 32];
-        let n_fds = epoll::epoll_wait(self.poll_fd, &mut events, timeout).map_err(no_nix_err)?;
-        let poll_events = events.iter().take(n_fds).map(|e|{
-            PollEvent{
-                token:Token::new(e.data() as usize),
-                event:e.events().into()
-            }
-        }).collect();
-        Ok(poll_events)
+        loop {
+            let n_fds = epoll::epoll_wait(self.poll_fd, &mut events, timeout).unwrap();
+            events.iter().take(n_fds).for_each(|item|{
+
+                    self.list.get(Token::new(item.data() as usize))
+                        .map(|f| {
+                        if let Some(ref mut cb) = f.callback {
+                            dbg!();
+                            cb(&mut f.fd.borrow_mut(), 0);
+                            dbg!();
+                        }
+                    });
+                }
+            );
+        }
     }
 }

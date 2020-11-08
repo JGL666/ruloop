@@ -2,6 +2,8 @@ use std::rc::Rc;
 use std::os::raw::c_uchar;
 use crate::event::event::EventSource;
 use std::cell::RefCell;
+use crate::event::list::Token;
+
 
 #[derive(Default)]
 pub struct ULoopFd{
@@ -9,20 +11,24 @@ pub struct ULoopFd{
     pub error:bool,
     pub registered:bool,
     pub flags:c_uchar,
+    pub token:Option<Token>,
     pub fd:Option<Rc<RefCell<dyn EventSource>>>,
 }
 
-type ULoopEventCallback = Option<Box<dyn FnMut(&mut ULoopFd, i32)>>;
-pub struct ULoopFdEvent{
-    pub fd:Box<ULoopFd>,
-    pub callback:ULoopEventCallback
-}
 
-impl ULoopFdEvent{
-    pub fn new(fd:Box<ULoopFd>, callback:ULoopEventCallback)->Self{
+impl ULoopFd{
+    pub fn new(fd:Option<Rc<RefCell<dyn EventSource>>>)->Self{
         Self{
-            fd,
-            callback
+            eof:false,
+            error:false,
+            registered:false,
+            flags:0,
+            token:None,
+            fd
         }
+    }
+
+    pub fn set_token(&mut self, token:Token){
+        self.token = Some(token);
     }
 }
