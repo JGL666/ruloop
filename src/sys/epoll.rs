@@ -1,21 +1,17 @@
 use std::{io,os::unix::io::RawFd};
 use nix::sys::epoll::{self,EpollEvent,EpollOp,EpollFlags};
 use nix::fcntl::{fcntl,FcntlArg,FdFlag};
-use crate::ULoopFd;
+use crate::uloop::ULoopFd;
+// use crate::ULoopFd;
 // use futures::StreamExt;
+use crate::list::Token;
 
-#[derive(Default,Debug)]
-pub struct Token(pub usize);
-impl Token{
-    pub fn new(n:usize)->Self{
-        Token(n)
-    }
-}
 #[derive(Debug)]
 pub struct PollEvent{
     pub token:Token,
     pub event:ULoopFlags
 }
+
 bitflags! {
    pub struct ULoopFlags: u32 {
         const ULOOP_READ = (1 << 0);
@@ -90,24 +86,24 @@ impl Epoll{
         };
 
         if flags.contains(ULoopFlags::ULOOP_READ){
-            events = (EpollFlags::EPOLLIN | EpollFlags::EPOLLRDHUP);
+            events = EpollFlags::EPOLLIN | EpollFlags::EPOLLRDHUP;
         }
 
         if flags.contains(ULoopFlags::ULOOP_WRITE){
-            events = (EpollFlags::EPOLLOUT);
+            events = EpollFlags::EPOLLOUT;
         }
 
         if flags.contains(ULoopFlags::ULOOP_EDGE_TRIGGER){
-            events = (EpollFlags::EPOLLET);
+            events = EpollFlags::EPOLLET;
         }
 
         let mut ev = EpollEvent::new(events, token.0 as u64);
         dbg!(&ev);
-        epoll::epoll_ctl(self.poll_fd, op, fd.fd.as_ref().unwrap().borrow().get_raw_fd(), Some(&mut ev));
+        let _ = epoll::epoll_ctl(self.poll_fd, op, fd.fd.as_ref().unwrap().borrow().get_raw_fd(), Some(&mut ev));
     }
 
-    fn del(&self, fd:&mut ULoopFd){
-        epoll::epoll_ctl(self.poll_fd, EpollOp::EpollCtlDel,
+    pub fn del(&self, _:&mut ULoopFd){
+        let _ = epoll::epoll_ctl(self.poll_fd, EpollOp::EpollCtlDel,
                          self.poll_fd, None);
     }
 

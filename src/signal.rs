@@ -1,5 +1,5 @@
 use nix::sys::signalfd::SignalFd;
-use nix::sys::signal::{self, SigmaskHow, raise, Signal, SigSet, sigprocmask};
+use nix::sys::signal::{self, SigmaskHow, Signal, SigSet, sigprocmask};
 use std::os::unix::io::RawFd;
 use std::os::unix::io::AsRawFd;
 use crate::event::event::EventSource;
@@ -37,7 +37,7 @@ impl ULoopSignal{
         println!("ssssssss");
         mask.add(signal::SIGUSR1);
         println!("ssssssss1");
-        sigprocmask(SigmaskHow::SIG_BLOCK, Some(&mask), None);
+        let _ = sigprocmask(SigmaskHow::SIG_BLOCK, Some(&mask), None);
         ULoopSignal{
             signal_fd: SignalFd::new(&mask).unwrap(),
             list:Vec::new()
@@ -95,11 +95,11 @@ impl ULoopSignal{
     fn parse_callback(&mut self, pid:Pid){
         let v = self.list.iter().position(|x|{
             if let Some(v) = x{
-                 if v.pid == pid{
-                     true
-                 }    else{
-                     false
-                 }
+                if v.pid == pid{
+                    true
+                }    else{
+                    false
+                }
             }else{
                 false
             }

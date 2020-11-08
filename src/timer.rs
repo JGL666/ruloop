@@ -1,6 +1,6 @@
 use nix::sys::time::{TimeSpec, TimeValLike};
 use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
-use std::time::{Instant,Duration};
+use std::time::{Duration};
 use crate::event::event::EventSource;
 use std::os::unix::io::RawFd;
 use std::os::unix::io::AsRawFd;
@@ -43,13 +43,13 @@ impl ULoopTimer{
     }
 
     pub fn set(&self, t:ULoopExpiration){
-        self.0.set(
+        let _ = self.0.set(
             t.into(),
             TimerSetTimeFlags::empty(),
         );
     }
 
     pub fn wait(&self){
-        self.0.wait();
+        let _ = self.0.wait();
     }
 }
