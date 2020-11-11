@@ -31,4 +31,16 @@ impl ULoopFd{
     pub fn set_token(&mut self, token:Token){
         self.token = Some(token);
     }
+
+    pub fn source_ref<T:EventSource + 'static, F:FnMut(&T)>(&self, mut cb:F){
+        let fd = self.fd.as_ref().unwrap().borrow();
+        let fd = fd.downcast_ref::<T>().unwrap();
+        cb(fd);
+    }
+
+    pub fn source_mut<T:EventSource + 'static,F:FnMut(&mut T)>(&mut self, mut cb:F){
+        let mut fd = self.fd.as_ref().unwrap().borrow_mut();
+        let fd = fd.downcast_mut::<T>().unwrap();
+        cb(fd);
+    }
 }

@@ -17,9 +17,9 @@ fn main() {
     let now = Instant::now();
     poll.register(ufd.clone(),ULoopFlags::ULOOP_READ,
                   Some(Box::new(move |a,_b|{
-                      let fd = a.fd.as_ref().unwrap().borrow();
-                      let fd = fd.downcast_ref::<ULoopTimer>().unwrap();
-                      fd.wait();
+                      a.source_ref::<ULoopTimer,_>(|fd|{
+                          fd.wait();
+                      });
                       dbg!(now.elapsed().as_secs());
                   })));
 
